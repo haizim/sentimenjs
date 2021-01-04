@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Analisis Sentimen Sederhana | Haizim.one</title>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="title" content="Analisis Sentimen Sederhana | Haizim.one">
+<meta name="description" content="Analisis sentimen sederhana yang dibuat sepenuhnya dengan javascript">
+
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+<style type="text/css">
+*{
+	transition: all 1.5s;
+}
+body{
+	padding: 1em 5%;
+}
+h1,h2,h3,h4,h5,h6{
+	font-weight: bold;
+}
+
+.hasil{
+	border: 1.5px solid #585858;
+	border-radius: 1em;
+	padding: 1em;
+	color: #585858;
+	background-color: #fff;
+}
+
+.klausa{
+	padding: .5em;
+	border-radius: .75em;
+}
+.kata{
+	padding: .25em;
+	border-radius: .25em;
+}
+
+.negatif{
+	background-color: #ff7256;
+	color : #630009;
+	/*border : 1px solid #630009;*/
+}
+
+.positif{
+	background-color: #4dabf7;
+	color : #2A4B7C;
+	/*border : 1px solid #2A4B7C;*/
+}
+
+.netral{
+	background-color: #fff85b;
+	color : #845d01;
+	/*border : 1px solid #845d01;*/
+}
+
+.negasi{
+	background-color: #ae3ec9;
+	color : #343148;
+	/*border : 1px solid #343148;*/
+}
+</style>
+
+</head>
+<body>
+<center>
+	<h3 id="judul" style="transition: all 1.5s;">Simple Sentiment Analytics</h3>
+</center>
+<hr>
+<div class="row">
+	<div class="col-sm">
+		<textarea id="teks" class="form-control" onkeyup="textAreaAdjust(this)"></textarea>
+	</div>
+	<div class="col-sm-1">
+		<br>
+		<center>
+		<button class="btn btn-dark btn-block" onclick="proses()" id="cek" style="transition: all 1.5s; border: none;">Cek</button>
+		</center>
+		<br>
+	</div>
+	<div class="col-sm">
+		<div class="hasil" id="box-hasil" style="transition: all 1.5s;">
+			<center>
+			<div class="row">
+				<div class="col-6 col-sm-3"><div class="klausa positif">POSITIF</div> <br> </div>
+				<div class="col-6 col-sm-3"><div class="klausa negatif">NEGATIF</div> <br> </div>
+				<div class="col-6 col-sm-3"><div class="klausa netral">NETRAL</div> <br> </div>
+				<div class="col-6 col-sm-3"><div class="klausa negasi">NEGASI</div> <br> </div>
+			</div>
+			</center>
+			<hr>
+			<center><b><big id="sentim" class="klausa">Sentimen : -</big></b></center>
+			<hr>
+			<p id="hasil">.</p>
+			<hr>
+			<center>
+				<b>
+					Jumlah Kalimat :
+				<div class="row">
+					<div class="col-sm-3"><br><div class="klausa positif" id="positif"> Positif : -</div></div>
+					<div class="col-sm-3"><br><div class="klausa negatif" id="negatif"> Negatif : -</div></div>
+					<div class="col-sm-3"><br><div class="klausa netral" id="netral"> Netral : -</div></div>
+					<div class="col-sm-3"><br><div class="klausa negasi" id="totkal"> Total : -</div></div>
+				</div>
+				<hr>
+				<big id="total" class="klausa">Total Kata : -</big></b>
+			</center>
+		</div>
+	</div>
+</div>
+
+<script type="text/javascript">
+
+setInterval(warna,2000);
+
+let penghubung = [];
+let sentimen = {};
+const awalan = ["","ter", "pe", "per", "peng", "pem", "se", "ke", "ber", "be", "meng", "men", "me", "mem", "meny","di","diper","memper", "ku"];
+const akhiran = ["","kan", "nya", "i", "an", "ku", "mu", "lah", "kannya", "annya"];
+
+let total = positif = negatif = netral = 0;
+let kalimatn = "";
+
+$.ajax({type:"GET",url:"penghubung.txt",success:function(data){
+	hubung = data.split("\n");
+	hubung.forEach( e => penghubung.push(e));
+}
+});
+
+$.ajax({type:"GET",url:"negatif.txt",success:function(data){
+	neg = data.split("\n");
+	//neg.forEach( e => console.log("- : "+e))
+	neg.forEach( e => sentimen[e] = "-");
+}
+});
+
+$.ajax({type:"GET",url:"positif.txt",success:function(data){
+	posi = data.split("\n");
+	posi.forEach( e => sentimen[e] = "+");
+}
+});
+
+$.ajax({type:"GET",url:"negasi.txt",success:function(data){
+	data = data.replaceAll("\r","");
+	ngs = data.split("\n");
+	//ngs.forEach( e => console.log("n : "+e));
+	ngs.forEach( e => sentimen[e] = "n");
+}
+});
+
+//penghubung.forEach(p => console.log(p));
+
+function proses(){
+	document.getElementById("total").innerText="Sedang Memproses..";
+	document.getElementById("hasil").innerHTML="";
+	total = positif = negatif = netral = 0;
+
+	let teks = document.getElementById("teks").value;
+	kalimat = teks.replaceAll(". ","/^%>>/");
+	kalimat = kalimat.replaceAll("\n","/^%>>/");
+	kalimat = kalimat.replaceAll("\r","/^%>>/");
+	kalimat = kalimat.split("/^%>>/");
+	kalimat = kalimat.filter(function(value, index, arr){
+		return value != "";
+	});
+	kalimat.forEach( e => pkal(e));
+
+	ct = document.getElementById("total");
+	csen = document.getElementById("sentim");
+	ctk = document.getElementById("totkal");
+	if(total>0){ 
+		ct.className = "klausa positif";
+		csen.className = "klausa positif";
+		ctk.className = "klausa positif";
+		csen.innerText = "Sentimen : POSITIF";
+	}else if(total<0){ 
+		ct.className = "klausa negatif";
+		csen.className = "klausa negatif";
+		ctk.className = "klausa negatif";
+		csen.innerText = "Sentimen : NEGATIF";
+	}else{ 
+		ct.className = "klausa netral";
+		csen.className = "klausa netral";
+		ctk.className = "klausa netral";
+		csen.innerText = "Sentimen : NETRAL";
+	}
+
+	has = document.getElementById("hasil").innerHTML;
+
+	totkal = positif-negatif;
+	
+	document.getElementById("positif").innerText = "Positif : "+positif;
+	document.getElementById("negatif").innerText = "Negatif : "+negatif;
+	document.getElementById("netral").innerText = "Netral : "+netral;
+	document.getElementById("totkal").innerText = "Total : "+totkal;
+	
+	document.getElementById("hasil").innerHTML = has;
+	document.getElementById("total").innerHTML= "Total Kata : "+total;
+}
+
+function pkal(kal){
+	//console.log("kal : "+kal);
+	kali = kal;
+	//kalimatn = "";
+	kalimatn = "";
+	penghubung.forEach( h => kali = kali.replaceAll( " "+h+" " ,"[+*-}"));
+	penghubung.forEach( h => kali = kali.replaceAll( ", " ,"[+*-}"));
+	//console.log("kal : "+kal);
+
+	klausa = kali.split("[+*-}");
+
+	let sent = 0;
+	if(kal != ""){
+		klausa.forEach(k => sent += pklausa(k));
+		total += sent;
+	
+		if(sent>0){ 
+			cs = "positif";
+			positif++;
+		}else if(sent<0){ 
+			cs = "negatif"
+			negatif++;
+		}else{ 
+			cs = "netral"
+			netral++;
+		}
+
+		has = document.getElementById("hasil").innerHTML;
+		tampil = has + "<p class='klausa "+ cs +"'><big><b>(" + sent + ")</b></big> " + kalimatn + ".</p>";
+		//tampil = has + "<hr>";
+		document.getElementById("hasil").innerHTML = tampil;
+		console.log("--------------------");
+	}
+}
+
+function pklausa(klau){
+	//console.log("klau : "+klau);
+	//console.log("klaus : "+klaus);
+	klaus = klau.replaceAll(/[^a-zA-Z0-9 ]/g," $& ");
+	kata = klaus.split(" ");
+	kata = kata.reverse();
+	klausan = " "+klaus+" ";
+
+	let senti = 0;
+	//kata.forEach( k => senti = psentim(senti,k));
+	kata.forEach( k => senti = pbersih(senti,k));
+	klausan = klausan.replaceAll(/[0-9]/g, "<span class='kata netral'>$&</span>");
+	klausan = klausan.replaceAll(/" ".[^a-zA-Z0-9 ]." "/g, "$&");
+	kalimatn += klausan;
+	return senti;
+	/*total += senti;
+	
+	if(senti>0){ cs = "positif" }else if(senti<0){ cs = "negatif"}else{ cs = "netral"}
+
+	has = document.getElementById("hasil").innerHTML;
+	tampil = has + "<p class='klausa "+ cs +"'><big><b>(" + senti + ")</b></big> " + klau + "</p>";
+	document.getElementById("hasil").innerHTML = tampil;
+	*/
+}
+
+function pbersih(poin,kt){
+	//console.log("bersih : "+kt);
+	kata = kt.toLowerCase();
+	kata = kata.replace(/[^a-z]/g, "");
+	let lanjut = "ya";
+	let aw = 0;
+	let ak = 0;
+	if(kata != ""){
+		kata = "+"+kata+"-";
+		//console.log(kt+" >> "+kata);
+		while((lanjut=="ya") && (aw<awalan.length)){
+			while((lanjut=="ya") && (ak<akhiran.length)){
+				//console.log("aw : "+awalan[aw]+"**"+kata+"**"+"ak : "+akhiran[ak]);
+				katax = kata.replace("+"+awalan[aw],"");
+				katax = katax.replace(akhiran[ak]+"-","");
+
+				if(katax != ""){
+					//console.log(kt+" >> "+kata);
+					cek = psentim(poin,katax)
+					if(cek != poin){
+						lanjut = "gak";
+						let selisih = cek-poin;
+						console.log("bersih."+kt+" >> "+katax+":"+selisih);
+						if(selisih==1){ cs = "positif" }else if(selisih== -1){ cs = "negatif"}else if(cek == -poin){cs = "negasi"}
+						klausan = klausan.replaceAll(" "+kt+" "," <span class='kata "+cs+"'>"+kt+"</span> ");
+						return cek;
+					}else{
+						ak++;	
+					}
+				}else{
+					ak++;
+				}	
+			}
+			aw++;
+			ak = 0;
+		}
+	
+	console.log("bersih-"+kt+": 0");
+	klausan = klausan.replaceAll(" "+kt+" "," <span class='kata netral'>"+kt+"</span> ");
+	}
+	return poin;
+}
+
+function psentim(skor,kt){
+	//console.log("kt : "+kt);
+	if(kt != ""){
+		switch(sentimen[kt]){
+			case "+" : 
+				//console.log(kt+" : +");
+				return skor+1;
+				break;
+			case "-" : 
+				//console.log(kt+" : -");
+				return skor-1;
+				break;
+			case "n" : 
+				//console.log(kt+" : n");
+				//if(skor != 0){ return skor*(-1) }else{ return skor-1 }
+				return skor*(-1) 
+				break;
+			default : 
+				//console.log(kt+" : 0");
+				return skor;
+				break;
+		}
+	}else{
+		return skor;
+	}
+}
+
+function textAreaAdjust(o) {
+  o.style.height = "1px";
+  o.style.height = (25+o.scrollHeight)+"px";
+}
+
+function warna(){
+	mw = Math.floor(Math.random()*255);
+	document.getElementById("judul").style.color = "hsl("+mw+",85%,58%)";
+	document.getElementById("cek").style.backgroundColor = "hsl("+mw+",85%,58%)";
+	document.getElementById("teks").style.borderColor = "hsl("+mw+",85%,58%)";
+	document.getElementById("box-hasil").style.borderColor = "hsl("+mw+",85%,58%)";
+}
+
+/*function warna(){
+	mw = Math.random()*360;
+	document.getElementById("judul").style.filter = "hue-rotate("+mw+")";
+	document.getElementById("cek").style.filter = "hue-rotate("+mw+")";
+	document.getElementById("teks").style.filter = "hue-rotate("+mw+")";
+	document.getElementById("box-hasil").style.filter = "hue-rotate("+mw+")";
+}*/
+</script>
+</body>
+</html>
